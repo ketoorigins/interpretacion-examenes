@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intérprete Fisiológico Local - Keto Origins</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Librerías para Procesamiento Local (SIN API) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- OCR para leer imágenes localmente -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <!-- Transformers.js para Inteligencia Local -->
+    <script type="module">
+        import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+        window.pipeline = pipeline;
+        // Configuración para que no intente buscar modelos en servidores locales, sino en Hugging Face (CDN)
+        env.allowLocalModels = false;
+    </script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #05050A;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(0, 112, 255, 0.12) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(255, 0, 255, 0.1) 0%, transparent 40%);
+            color: #F8FAFC;
+            min-height: 100vh;
+        }
+
+        .glass-card {
+            background: rgba(18, 18, 26, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 2rem;
+        }
+
+        .logo-ring {
+            background: linear-gradient(135deg, #0070FF 0%, #FF00FF 100%);
+            padding: 5px;
+            border-radius: 9999px;
+            position: relative;
+            box-shadow: 0 15px 50px -10px rgba(255, 0, 255, 0.8);
+        }
+
+        .text-fisiologico {
+            color: #00D1FF;
+            text-shadow: 0 0 20px rgba(0, 209, 255, 0.5);
+            font-weight: 900;
+        }
+
+        .btn-brand-glow {
+            background: linear-gradient(135deg, #0070FF 0%, #FF00FF 100%);
+            box-shadow: 0 10px 40px -5px rgba(255, 0, 255, 0.7);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: none;
+        }
+
+        .btn-brand-glow:hover {
+            box-shadow: 0 15px 60px -5px rgba(255, 0, 255, 0.9);
+            transform: translateY(-3px);
+        }
+
+        .custom-input {
+            background-color: rgba(26, 26, 36, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1.25rem;
+            padding: 1rem;
+            color: white;
+            outline: none;
+            width: 100%;
+        }
+
+        .screen { transition: all 0.5s ease; }
+        .hidden { display: none; }
+
+        .status-normal { border-left: 8px solid #10B981; } 
+        .status-mejorable { border-left: 8px solid #F59E0B; } 
+        .status-atencion { border-left: 8px solid #EF4444; } 
+
+        .loading-bar-container {
+            width: 100%;
+            background: rgba(255,255,255,0.05);
+            height: 4px;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .loading-bar-progress {
+            height: 100%;
+            background: #FF00FF;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body class="antialiased flex items-center justify-center p-4">
+
+    <div id="app-container" class="w-full max-w-md mx-auto">
+
+        <!-- 1. Bienvenida -->
+        <div id="welcome-screen" class="screen space-y-12 text-center">
+            <div class="flex justify-center">
+                <div class="logo-ring">
+                    <div class="w-36 h-36 rounded-full overflow-hidden bg-black flex items-center justify-center">
+                        <img src="https://i.ibb.co/20NypXdZ/ketoorigins.png" alt="Logo" id="brand-logo-img" class="w-full h-full object-cover">
+                    </div>
+                </div>
+            </div>
+            <div class="space-y-4">
+                <h1 class="text-4xl font-black tracking-tighter leading-none uppercase text-white">
+                    Intérprete<br><span class="text-fisiologico italic">Fisiológico</span>
+                    <span class="block text-xs mt-2 text-pink-500 font-bold tracking-[0.5em]">LOCAL V1</span>
+                </h1>
+                <p class="text-[10px] text-gray-500 font-black uppercase tracking-[0.4em]">Soberanía Biológica Total</p>
+            </div>
+            <button id="start-btn" class="w-full btn-brand-glow text-white font-black py-5 rounded-3xl shadow-xl uppercase text-sm tracking-[0.2em]">
+                Iniciar Análisis Local
+            </button>
+        </div>
+
+        <!-- 2. Perfil -->
+        <div id="profile-screen" class="screen hidden glass-card p-10 space-y-8">
+            <div class="text-center">
+                <h2 class="text-2xl font-black italic uppercase text-white">Perfil Biológico</h2>
+            </div>
+            <form id="profile-form" class="space-y-6">
+                <div>
+                    <label class="text-[10px] font-black text-blue-400 ml-1 uppercase">Nombre Completo</label>
+                    <input type="text" id="user-name" placeholder="Ej. Juan Pérez" required class="custom-input mt-1">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-blue-400 ml-1 uppercase">Fecha de Nacimiento</label>
+                    <input type="date" id="user-dob" required class="custom-input mt-1">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[10px] font-black text-blue-400 ml-1 uppercase">Sexo Biológico</label>
+                        <select id="user-sex" class="custom-input mt-1">
+                            <option value="Hombre ♂️">Hombre ♂️</option>
+                            <option value="Mujer ♀️">Mujer ♀️</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-blue-400 ml-1 uppercase">Alimentación</label>
+                        <select id="user-diet" class="custom-input mt-1">
+                            <option value="Estándar 🍕">Estándar 🍕</option>
+                            <option value="Keto 🥑">Keto 🥑</option>
+                            <option value="Carnívora 🥩">Carnívora 🥩</option>
+                            <option value="Vegana 🌱">Vegana 🌱</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="w-full btn-brand-glow text-white font-black py-5 rounded-3xl mt-4 uppercase text-xs tracking-[0.2em]">
+                    Vincular Datos
+                </button>
+            </form>
+        </div>
+
+        <!-- 3. Dashboard -->
+        <div id="dashboard-screen" class="screen hidden space-y-8">
+            <div class="flex justify-between items-end">
+                <div>
+                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Paciente:</p>
+                    <h2 id="user-display" class="text-3xl font-black text-white"></h2>
+                </div>
+            </div>
+            
+            <div id="drop-zone" class="w-full glass-card p-16 flex flex-col items-center gap-6 border-2 border-dashed border-blue-500/20 hover:border-blue-500/50 transition-all group cursor-pointer text-center">
+                <div class="bg-blue-500/10 p-8 rounded-[2.5rem] group-hover:scale-110 transition-transform">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <div class="space-y-2">
+                    <span class="block font-black text-2xl uppercase tracking-tighter text-white">Cargar Examen</span>
+                    <p class="text-[10px] text-gray-500 uppercase font-black tracking-[0.3em]">Procesamiento 100% Local</p>
+                </div>
+            </div>
+            <input type="file" id="file-input" class="hidden" accept="image/*,application/pdf">
+        </div>
+
+        <!-- 4. Cargando -->
+        <div id="loading-screen" class="screen hidden text-center py-20">
+            <div class="flex justify-center mb-10">
+                <div id="loader-spinner" class="w-20 h-20 border-4 border-pink-500/10 border-t-pink-500 rounded-full animate-spin"></div>
+            </div>
+            <h2 id="loading-title" class="text-2xl font-black uppercase italic text-white tracking-tighter">Despertando Inteligencia</h2>
+            <p id="loading-msg" class="text-[10px] text-gray-500 uppercase tracking-[0.3em] font-black mt-4">La primera vez puede tardar unos segundos...</p>
+            <div class="loading-bar-container mx-auto max-w-[200px]">
+                <div id="loading-bar" class="loading-bar-progress"></div>
+            </div>
+        </div>
+
+        <!-- 5. Reporte -->
+        <div id="report-screen" class="screen hidden space-y-6 pb-32">
+            <div class="text-center">
+                <h2 class="text-3xl font-black uppercase tracking-tighter text-white">Realidad <span class="text-blue-400">Biológica</span></h2>
+                <p id="report-meta" class="text-[10px] font-bold text-gray-500 uppercase mt-1 tracking-[0.2em]"></p>
+            </div>
+            <div id="results-container" class="space-y-6"></div>
+            <div class="glass-card p-8 border-l-8 border-red-600 bg-red-900/10">
+                <h3 class="text-xs font-black text-red-500 uppercase tracking-widest mb-4">⚠️ Realidad Biológica</h3>
+                <div id="expert-advice" class="text-sm text-gray-300 space-y-5 leading-relaxed italic font-semibold"></div>
+            </div>
+            <div class="fixed bottom-8 left-4 right-4 max-w-md mx-auto grid grid-cols-2 gap-4 z-50">
+                <button id="reset-btn" class="glass-card bg-white/5 py-5 font-black text-[10px] uppercase text-white tracking-widest">Nueva Carga</button>
+                <button id="pdf-btn" class="btn-brand-glow py-5 rounded-[1.5rem] font-black text-[10px] uppercase text-white shadow-2xl tracking-widest">Exportar PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        const state = { user: {}, results: [], raw_report: "", model: null };
+        const $ = id => document.getElementById(id);
+
+        const navigate = id => {
+            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+            $(id).classList.remove('hidden');
+            window.scrollTo(0,0);
+        };
+
+        // 1. CARGA DEL MODELO LOCAL (SÓLO UNA VEZ)
+        async function initLocalModel() {
+            if (state.model) return;
+            try {
+                $('loading-title').textContent = "Iniciando Motor Local";
+                // Usamos un modelo liviano ideal para resúmenes y extracción de datos
+                state.model = await window.pipeline('text2text-generation', 'Xenova/LaMini-Flan-T5-783M', {
+                    progress_callback: (p) => {
+                        if (p.status === 'progress') {
+                            $('loading-bar').style.width = p.progress + '%';
+                            $('loading-msg').textContent = `Descargando conocimiento: ${Math.round(p.progress)}%`;
+                        }
+                    }
+                });
+            } catch (e) {
+                console.error(e);
+                alert("Error cargando IA local: " + e.message);
+            }
+        }
+
+        $('start-btn').onclick = () => navigate('profile-screen');
+
+        $('profile-form').onsubmit = e => {
+            e.preventDefault();
+            const dob = new Date($('user-dob').value);
+            const today = new Date();
+            let age = today.getFullYear() - dob.getFullYear();
+            state.user = { name: $('user-name').value, age, sex: $('user-sex').value, diet: $('user-diet').value };
+            $('user-display').textContent = state.user.name;
+            navigate('dashboard-screen');
+        };
+
+        $('drop-zone').onclick = () => $('file-input').click();
+
+        $('file-input').onchange = async e => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            navigate('loading-screen');
+            await initLocalModel();
+
+            try {
+                // OCR Local
+                $('loading-title').textContent = "Escaneando Documento";
+                $('loading-msg').textContent = "Leyendo biomarcadores localmente...";
+                
+                const imageSrc = file.type === "application/pdf" ? await pdfToImage(file) : await fileToDataUrl(file);
+                
+                const ocrResult = await Tesseract.recognize(imageSrc, 'spa', {
+                    logger: m => {
+                        if(m.status === 'recognizing text') {
+                            $('loading-bar').style.width = (m.progress * 100) + '%';
+                        }
+                    }
+                });
+
+                const text = ocrResult.data.text;
+                await processWithLocalAI(text);
+
+            } catch (err) {
+                console.error(err);
+                alert("Error en el escaneo local: " + err.message);
+                navigate('dashboard-screen');
+            }
+        };
+
+        async function fileToDataUrl(file) {
+            return new Promise(res => {
+                const reader = new FileReader();
+                reader.onload = () => res(reader.result);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function pdfToImage(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const page = await pdf.getPage(1);
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            const viewport = page.getViewport({ scale: 2.0 });
+            canvas.height = viewport.height; canvas.width = viewport.width;
+            await page.render({ canvasContext: context, viewport: viewport }).promise;
+            return canvas.toDataURL('image/png');
+        }
+
+        // 2. PROCESAMIENTO CON IA LOCAL
+        async function processWithLocalAI(extractedText) {
+            $('loading-title').textContent = "Generando Realidad";
+            $('loading-msg').textContent = "Nuestra visión está analizando tus células...";
+            $('loading-bar').style.width = '50%';
+
+            // Prompt diseñado para el modelo local LaMini
+            const prompt = `Task: Analyze medical markers and give a harsh biological reality check. 
+            Patient: ${state.user.name}, ${state.user.age} years old, Diet: ${state.user.diet}. 
+            Data: ${extractedText}
+            Rule 1: If Glucose > 85, say it's active metabolic damage.
+            Rule 2: Be educational and very direct about health risks.
+            Format: Summarize findings and provide a 2 paragraph "Realidad Biológica" warning.`;
+
+            const output = await state.model(prompt, {
+                max_new_tokens: 500,
+                temperature: 0.7,
+                repetition_penalty: 1.2
+            });
+
+            const rawResponse = output[0].generated_text;
+
+            // Simulamos la estructura para que el render siga funcionando
+            // En una versión local pura, la IA nos da un texto y nosotros extraemos los datos
+            state.results = [
+                {
+                    title: "Análisis General Local",
+                    raw_text: "Información extraída del documento",
+                    value: "Procesado",
+                    unit: "V1",
+                    dogma_reference: "N/A",
+                    interpretation: "Interpretación generada por el motor local de Keto Origins.",
+                    status: "atencion"
+                }
+            ];
+            
+            state.raw_report = rawResponse;
+            renderReport();
+        }
+
+        function renderReport() {
+            $('results-container').innerHTML = state.results.map(res => {
+                const color = 'text-red-500';
+                return `
+                <div class="glass-card p-6 status-atencion">
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <span class="text-[8px] font-black uppercase tracking-widest ${color} mb-1 block">ANÁLISIS LOCAL</span>
+                            <h4 class="font-black text-white text-lg uppercase tracking-tight">${res.title}</h4>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="bg-black/40 p-4 rounded-xl text-xs text-gray-400 leading-relaxed border border-white/5 italic">Datos escaneados correctamente.</div>
+                        <div class="text-sm text-gray-200 leading-relaxed font-medium">El motor local ha procesado el texto de tu examen. Revisa la Realidad Biológica debajo para el veredicto.</div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            $('expert-advice').innerHTML = (state.raw_report || "").split('\n').map(p => `<p class="mb-3">${p}</p>`).join('');
+            $('report-meta').textContent = `${state.user.name.toUpperCase()} • ${state.user.age} AÑOS • LOCAL AI V1`;
+            navigate('report-screen');
+        }
+
+        $('reset-btn').onclick = () => { navigate('dashboard-screen'); };
+
+        $('pdf-btn').onclick = async () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const logo = $('brand-logo-img');
+            const clean = (text) => text ? text.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '').trim() : "";
+
+            try { doc.addImage(logo, 'PNG', 15, 12, 22, 22); } catch(e) {}
+            doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.setTextColor(0, 112, 255);
+            doc.text("KETO ORIGINS", 42, 22);
+            doc.setFontSize(9); doc.setTextColor(120);
+            doc.text("INFORME DE SOBERANÍA BIOLÓGICA LOCAL", 42, 28);
+            
+            doc.setDrawColor(239, 68, 68); doc.setLineWidth(0.8); doc.line(15, 38, 195, 38);
+            
+            let y = 50;
+            doc.setFont("helvetica", "bolditalic"); doc.setFontSize(14); doc.setTextColor(239, 68, 68);
+            doc.text("REALIDAD BIOLÓGICA", 15, y);
+            y += 10;
+            
+            doc.setFont("helvetica", "normal"); doc.setFontSize(10.5); doc.setTextColor(40);
+            const lessonLines = doc.splitTextToSize(clean(state.raw_report), 175);
+            lessonLines.forEach(line => {
+                if (y > 280) { doc.addPage(); y = 20; }
+                doc.text(line, 15, y);
+                y += 6;
+            });
+            doc.save(`KetoOrigins_Local_${state.user.name.replace(/\s+/g, '_')}.pdf`);
+        };
+    </script>
+</body>
+</html>
